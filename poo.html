@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Real-Time Parcel Route Finder</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    /* General Body and Layout */
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 10px;
+      margin: 0;
+      background-color: #a2eee5; /* Light background for a cleaner look */
+      color: #333;
+    }
+
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 15px;
+    }
+
+    p {
+      margin-bottom: 15px;
+      color: #555;
+    }
+
+    /* Map Container */
+    #map {
+      height: 450px;
+      width: 90%;
+      max-width: 800px;
+      margin: 15px auto;
+      border: 2px solid #a0a0a0; /* Softer border */
+      border-radius: 8px; /* Slightly rounded corners */
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    }
+
+    /* Textarea for Input */
+    textarea {
+      width: 90%;
+      max-width: 800px;
+      height: 80px; /* Slightly reduced height as it's for single input */
+      font-size: 16px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box; /* Include padding in width */
+      resize: vertical; /* Allow vertical resizing */
+    }
+
+    /* Buttons */
+    button {
+      margin: 10px 5px;
+      padding: 12px 25px; /* More generous padding */
+      font-size: 17px; /* Slightly larger font */
+      cursor: pointer;
+      border: none;
+      border-radius: 5px; /* More rounded corners */
+      transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth transitions */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    button:hover {
+      transform: translateY(-2px); /* Slight lift on hover */
+    }
+
+    button:active {
+      transform: translateY(0); /* Press effect */
+    }
+
+    button.primary-button { /* General primary action button */
+      background-color: #28a745; /* Green */
+      color: white;
+    }
+
+    button.primary-button:hover {
+      background-color: #218838;
+    }
+
+    button.secondary-button { /* For "Use My Current Location" */
+        background-color: #007bff; /* Blue */
+        color: white;
+    }
+
+    button.secondary-button:hover {
+        background-color: #0056b3;
+    }
+
+    button#clearBtn { /* Clear button style */
+      background-color: #dc3545; /* Red */
+      color: white;
+    }
+
+    button#clearBtn:hover {
+      background-color: #c82333;
+    }
+
+    /* Location List */
+    ul#locList {
+      list-style: none;
+      padding: 0;
+      max-width: 800px;
+      margin: 20px auto; /* More margin */
+      text-align: left;
+      background-color: #ffffff;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      padding: 15px 20px;
+    }
+
+    ul#locList li {
+      padding: 6px 0; /* More vertical spacing */
+      border-bottom: 1px dashed #e9ecef; /* Subtle separator */
+      color: #495057;
+    }
+
+    ul#locList li:last-child {
+      border-bottom: none;
+    }
+
+    /* Info Banners */
+    .info-banner {
+      background-color: #ffeeba;
+      color: #856404;
+      padding: 12px;
+      margin: 15px auto;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      max-width: 800px;
+      display: none;
+      font-size: 15px;
+      text-align: left;
+    }
+
+    .location-status {
+      color: #666;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+
+    /* Custom Marker Icons */
+    .current-loc-marker {
+      font-weight: bold;
+      color: blue;
+    }
+
+    .warehouse-node-marker {
+      /* Base style for all custom div icons if needed */
+    }
+
+    .warehouse-node-marker.main-warehouse div {
+      background-color: #dc3545; /* Red color for main warehouse */
+      width: 50px; /* Larger */
+      height: 50px;
+      border-radius: 50%;
+      border: 3px solid white; /* Thicker white border */
+      display: flex;
+      flex-direction: column; /* Stack symbol and text */
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      line-height: 1.2;
+      text-align: center;
+      white-space: nowrap; /* Prevent text wrapping */
+      overflow: hidden; /* Hide overflow */
+      text-overflow: ellipsis; /* Add ellipsis for overflow */
+      padding: 2px;
+    }
+
+    .warehouse-node-marker.main-warehouse .marker-symbol {
+        font-size: 20px; /* Larger symbol */
+        margin-bottom: 2px;
+    }
+
+    .warehouse-node-marker.sub-warehouse div {
+      background-color: #dc3545; /* Red color for sub-warehouses */
+      width: 40px; /* Slightly larger */
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid white;
+      display: flex;
+      flex-direction: column; /* Stack symbol and text */
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 8px; /* Smaller font for ID */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      line-height: 1.2;
+      text-align: center;
+      white-space: nowrap; /* Prevent text wrapping */
+      overflow: hidden; /* Hide overflow */
+      text-overflow: ellipsis; /* Add ellipsis for overflow */
+      padding: 2px;
+    }
+
+    .warehouse-node-marker.sub-warehouse .marker-symbol {
+        font-size: 16px; /* Symbol size */
+        margin-bottom: 1px;
+    }
+
+    .highlight-warehouse {
+       animation: pulse-border 1.5s infinite alternate;
+    }
+
+    @keyframes pulse-border {
+        from {
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+        }
+        to {
+            box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
+        }
+    }
+
+    /* Added styling for the region selection */
+    .region-selection {
+        margin-bottom: 15px;
+    }
+
+    .region-selection label {
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .region-selection select {
+        padding: 8px;
+        font-size: 16px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>📍 Real-Time Parcel Route Finder</h1>
+  <div id="locationStatus" class="location-status">Location services: Waiting...</div>
+  <div id="infoBanner" class="info-banner">Please allow location access to use your current position.</div>
+
+  <div class="region-selection">
+      <label for="regionSelect">Select Region:</label>
+      <select id="regionSelect" onchange="changeRegion()">
+          <option value="dehradun">Dehradun</option>
+          <option value="delhi">Delhi</option>
+      </select>
+  </div>
+
+  <p>Enter the destination location for your parcel to find the nearest warehouse and its route:</p>
+  <textarea id="locationInput" placeholder="e.g., Gandhi Park, Dehradun or Connaught Place, Delhi"></textarea>
+
+  <div>
+    <button id="useCurrentLoc" onclick="addCurrentLocation()" class="secondary-button">Use My Current Location</button>
+    <button onclick="processSingleDestination()" class="primary-button">Find Nearest Warehouse & Route</button>
+    <button id="clearBtn" onclick="clearAll()">Clear Map</button>
+  </div>
+
+  <div id="map"></div>
+  <ul id="locList"></ul>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // --- Constants ---
+    const ORS_API_KEY = "5b3ce3597851110001cf6248bc74bdfae6424844aad34a2332cc7d93"; // 🔑 Replace with your ORS API key
+
+    const REGIONS = {
+        dehradun: {
+            center: [30.3165, 78.0322], // Approximate center of Dehradun
+            bounds: { // Approximate bounding box for Dehradun for geocoding filtering
+                minLat: 30.2, maxLat: 30.4,
+                minLon: 77.9, maxLon: 78.1
+            },
+            warehouses: [
+                { id: 'WH01', name: "Dehradun Main Warehouse", coords: [30.3165, 78.0322], type: 'main' },
+                { id: 'DDSW01', name: "Rajpur Road Warehouse", coords: [30.3541, 78.0653], type: 'sub' },
+                { id: 'DDSW02', name: "Prem Nagar Warehouse", coords: [30.3015, 77.9366], type: 'sub' },
+                { id: 'DDSW03', name: "Saharanpur Road Warehouse", coords: [30.2977, 78.0069], type: 'sub' },
+                { id: 'DDSW04', name: "Indira Nagar Warehouse", coords: [30.3113, 78.0267], type: 'sub' },
+                { id: 'DDSW05', name: "Ballupur Warehouse", coords: [30.3262, 77.9890], type: 'sub' },
+                { id: 'DDSW06', name: "Haridwar Road Warehouse", coords: [30.2917, 78.0416], type: 'sub' },
+                { id: 'DDSW07', name: "Clement Town Warehouse", coords: [30.2642, 78.0253], type: 'sub' },
+                { id: 'DDSW08', name: "Dharampur Warehouse", coords: [30.3082, 78.0531], type: 'sub' },
+                { id: 'DDSW09', name: "Majra Warehouse", coords: [30.3340, 77.9818], type: 'sub' },
+                { id: 'DDSW10', name: "Chakrata Road Warehouse", coords: [30.3475, 77.9620], type: 'sub' }
+            ]
+        },
+        delhi: {
+            center: [28.6139, 77.2090], // Approximate center of Delhi (Connaught Place)
+            bounds: { // Approximate bounding box for Delhi for geocoding filtering
+                minLat: 28.4, maxLat: 28.9,
+                minLon: 76.8, maxLon: 77.6
+            },
+            warehouses: [
+                { id: 'DLWH01', name: "Delhi Main Warehouse (Okhla)", coords: [28.5355, 77.2588], type: 'main' },
+                { id: 'DLSW01', name: "Dwarka Warehouse", coords: [28.5900, 77.0300], type: 'sub' },
+                { id: 'DLSW02', name: "Rohini Warehouse", coords: [28.7300, 77.1000], type: 'sub' },
+                { id: 'DLSW03', name: "Shahdara Warehouse", coords: [28.6700, 77.3100], type: 'sub' },
+                { id: 'DLSW04', name: "Gurgaon Warehouse", coords: [28.4595, 77.0266], type: 'sub' },
+                { id: 'DLSW05', name: "Noida Warehouse", coords: [28.5355, 77.3910], type: 'sub' },
+                { id: 'DLSW06', name: "South Delhi Warehouse (Saket)", coords: [28.5200, 77.2100], type: 'sub' },
+                { id: 'DLSW07', name: "West Delhi Warehouse (Janakpuri)", coords: [28.6200, 77.0800], type: 'sub' }
+                // You can add 3 more sub-warehouses here to make it 10 for Delhi if needed
+            ]
+        }
+    };
+
+    // --- Global Variables ---
+    let map = null;
+    let currentLocationMarker = null;
+    let currentPosition = null; // [latitude, longitude]
+    let watchId = null;
+    let markers = []; // Stores all Leaflet markers added to the map (destination, warehouse)
+    let allSegments = []; // Stores all Leaflet polyline segments for routes
+    let currentRegion = 'dehradun'; // Default to Dehradun
+
+    // DOM Elements
+    const locationStatusElem = document.getElementById("locationStatus");
+    const infoBanner = document.getElementById("infoBanner");
+    const regionSelectElem = document.getElementById("regionSelect");
+
+    // --- Helper Functions ---
+
+    /**
+     * Calculates the Haversine distance between two sets of coordinates.
+     * @param {number[]} coords1 - [latitude, longitude] of the first point.
+     * @param {number[]} coords2 - [latitude, longitude] of the second point.
+     * @returns {number} Distance in kilometers.
+     */
+    function haversineDistance([lat1, lon1], [lat2, lon2]) {
+      const toRad = x => (x * Math.PI) / 180;
+      const R = 6371; // Earth's radius in kilometers
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    /**
+     * Fetches route GeoJSON data between two points using OpenRouteService API.
+     * @param {number[]} start - [latitude, longitude] of the start point.
+     * @param {number[]} end - [latitude, longitude] of the end point.
+     * @returns {Promise<object|null>} GeoJSON route object or null if failed.
+     */
+    async function getRouteBetweenPoints(start, end) {
+      const url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Authorization": ORS_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            coordinates: [[start[1], start[0]], [end[1], end[0]]] // ORS expects [longitude, latitude]
+          }),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Routing failed: ${response.status} - ${errorText}`);
+          alert(`Routing error: ${response.status}. Check console for details. (API key or coordinates issue)`);
+          return null;
+        }
+        return await response.json();
+      } catch (error) {
+        console.error("Network or routing API error:", error);
+        alert("Could not connect to routing service. Check your internet connection or API key.");
+        return null;
+      }
+    }
+
+    /**
+     * Geocodes a location string to coordinates using OpenStreetMap Nominatim.
+     * Filters results based on the currently selected region.
+     * @param {string} location - The location string to geocode.
+     * @returns {Promise<number[]|null>} [latitude, longitude] or null if not found.
+     */
+    async function geocodeLocation(location) {
+        if (location === "My Current Location") return currentPosition ?? null;
+
+        const currentRegionData = REGIONS[currentRegion];
+        const regionName = currentRegion.charAt(0).toUpperCase() + currentRegion.slice(1); // "Dehradun" or "Delhi"
+
+        // First, check if the input directly matches a known warehouse in the current region
+        const warehouseMatch = currentRegionData.warehouses.find(node =>
+            node.name.toLowerCase() === location.toLowerCase() ||
+            node.id.toLowerCase() === location.toLowerCase()
+        );
+        if (warehouseMatch) {
+            return warehouseMatch.coords;
+        }
+
+        // If not a warehouse, try Nominatim with region context
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}, ${regionName}`;
+            const response = await fetch(url, { headers: { "User-Agent": "CollegeProjectDemo" } });
+            const data = await response.json();
+
+            // Filter results to be within the current region's approximate bounds
+            const filteredData = data.filter(item =>
+                parseFloat(item.lat) >= currentRegionData.bounds.minLat &&
+                parseFloat(item.lat) <= currentRegionData.bounds.maxLat &&
+                parseFloat(item.lon) >= currentRegionData.bounds.minLon &&
+                parseFloat(item.lon) <= currentRegionData.bounds.maxLon
+            );
+
+            return filteredData.length ? [parseFloat(filteredData[0].lat), parseFloat(filteredData[0].lon)] : null;
+        } catch (error) {
+            console.error("Geocoding error:", error);
+            return null;
+        }
+    }
+
+    /**
+     * Finds the nearest warehouse node to a given destination coordinate for the current region.
+     * @param {number[]} destinationCoords - [latitude, longitude] of the destination.
+     * @returns {object|null} The nearest warehouse node object or null if none found.
+     */
+    async function findNearestWarehouse(destinationCoords) {
+        const currentRegionWarehouses = REGIONS[currentRegion].warehouses;
+        let nearestWarehouse = null;
+        let minDist = Infinity;
+
+        for (const node of currentRegionWarehouses) {
+            const dist = haversineDistance(destinationCoords, node.coords);
+            if (dist < minDist) {
+                minDist = dist;
+                nearestWarehouse = node;
+            }
+        }
+        return nearestWarehouse;
+    }
+
+    // --- Map Initialization and Location Tracking ---
+
+    /**
+     * Initializes the Leaflet map and starts geolocation watch.
+     */
+    function initMap() {
+      map = L.map("map").setView(REGIONS[currentRegion].center, 12); // Initial view based on selected region
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19, attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      startLocationWatch();
+      map.on('drag', () => map.userInteracted = true);
+      addWarehouseNodesToMap(); // Add static warehouse markers for the current region
+    }
+
+    /**
+     * Updates the map and displayed warehouses when the region changes.
+     */
+    function changeRegion() {
+        clearAll(false); // Clear everything except current location marker
+        currentRegion = regionSelectElem.value;
+        map.setView(REGIONS[currentRegion].center, 12);
+        addWarehouseNodesToMap(); // Add warehouses for the new region
+        document.getElementById("locationInput").placeholder = `e.g., Gandhi Park, Dehradun or Connaught Place, Delhi (${currentRegion.charAt(0).toUpperCase() + currentRegion.slice(1)})`;
+        document.querySelector('h1').textContent = `📍 Real-Time Parcel Route Finder (${currentRegion.charAt(0).toUpperCase() + currentRegion.slice(1)})`;
+    }
+
+    /**
+     * Adds all defined warehouse nodes for the current region to the map with custom icons.
+     */
+    function addWarehouseNodesToMap() {
+        const currentRegionWarehouses = REGIONS[currentRegion].warehouses;
+        currentRegionWarehouses.forEach(node => {
+            let iconHtml, iconSize, iconAnchor, className;
+            if (node.type === 'main') {
+                className = 'warehouse-node-marker main-warehouse';
+                iconHtml = `
+                    <div>
+                        <i class="fas fa-warehouse marker-symbol"></i><br>
+                        ${node.name}
+                    </div>`;
+                iconSize = [54, 54];
+                iconAnchor = [27, 27];
+            } else { // sub-warehouse
+                className = 'warehouse-node-marker sub-warehouse';
+                iconHtml = `
+                    <div>
+                        <i class="fas fa-box marker-symbol"></i><br>
+                        ${node.name}
+                    </div>`;
+                iconSize = [44, 44];
+                iconAnchor = [22, 22];
+            }
+
+            L.marker(node.coords, {
+                icon: L.divIcon({
+                    className: className,
+                    html: iconHtml,
+                    iconSize: iconSize,
+                    iconAnchor: iconAnchor
+                })
+            }).addTo(map).bindPopup(`<b>${node.name}</b> (${node.id})`);
+        });
+        // Fit map to bounds of all warehouse nodes in the current region
+        const bounds = L.latLngBounds(currentRegionWarehouses.map(node => L.latLng(node.coords[0], node.coords[1])));
+        if (bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.1));
+        }
+    }
+
+    /**
+     * Starts watching the user's geolocation.
+     */
+    function startLocationWatch() {
+      if ("geolocation" in navigator) {
+        locationStatusElem.textContent = "Location services: Initializing...";
+        watchId = navigator.geolocation.watchPosition(
+          positionSuccess, positionError,
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+      } else {
+        locationStatusElem.textContent = "Location services: Not available";
+        infoBanner.textContent = "Your browser doesn't support geolocation.";
+        infoBanner.style.display = "block";
+      }
+    }
+
+    /**
+     * Callback for successful geolocation updates.
+     * @param {GeolocationPosition} position - The current geolocation position.
+     */
+    function positionSuccess(position) {
+      const { latitude, longitude, accuracy } = position.coords;
+      currentPosition = [latitude, longitude];
+      locationStatusElem.textContent = `Location services: Active (accuracy ~${Math.round(accuracy)}m)`;
+      infoBanner.style.display = "none";
+      if (currentLocationMarker) {
+          currentLocationMarker.setLatLng(currentPosition);
+      } else {
+          const blueIcon = L.divIcon({
+            html: '<div style="background-color:#2196F3;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>',
+            className: 'custom-div-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          });
+          currentLocationMarker = L.marker(currentPosition, { icon: blueIcon })
+            .addTo(map).bindPopup("My Current Location").openPopup();
+      }
+      if (!map.userInteracted) {
+        map.setView(currentPosition, 13);
+        map.userInteracted = true;
+      }
+    }
+
+    /**
+     * Callback for geolocation errors.
+     * @param {GeolocationPositionError} error - The geolocation error object.
+     */
+    function positionError(error) {
+      const messages = {
+        1: "Location access was denied.",
+        2: "Location information is unavailable.",
+        3: "Location request timed out.",
+      };
+      const msg = messages[error.code] || "Unknown location error";
+      locationStatusElem.textContent = `Location services: Error (${msg})`;
+      infoBanner.textContent = `${msg}. Please enable location services.`;
+      infoBanner.style.display = "block";
+    }
+
+    /**
+     * Adds the user's current location to the input field if available.
+     */
+    function addCurrentLocation() {
+      if (!currentPosition) {
+        alert("Current location not ready yet. Please wait or ensure location services are enabled.");
+        return;
+      }
+      const textarea = document.getElementById("locationInput");
+      const label = "My Current Location";
+      textarea.value = label;
+
+      if (!currentLocationMarker) {
+        const blueIcon = L.divIcon({
+          html: '<div style="background-color:#2196F3;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>',
+          className: 'custom-div-icon',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        currentLocationMarker = L.marker(currentPosition, { icon: blueIcon })
+          .addTo(map).bindPopup("My Current Location").openPopup();
+        map.setView(currentPosition, 13);
+      }
+    }
+
+    // --- Main Parcel Delivery Logic ---
+
+    /**
+     * Processes a single destination input to find the nearest warehouse and display the route for the current region.
+     */
+    async function processSingleDestination() {
+        const input = document.getElementById("locationInput").value.trim();
+        const locList = document.getElementById("locList");
+
+        if (!input) {
+            return alert("Please enter a destination location.");
+        }
+
+        clearRouteAndMarkers();
+        locList.innerHTML = "<li>Geocoding destination...</li>";
+
+        const destinationName = input;
+        const destinationCoords = await geocodeLocation(destinationName);
+
+        if (!destinationCoords) {
+            alert(`Destination not found: "${destinationName}". Please try a more specific address within ${currentRegion.charAt(0).toUpperCase() + currentRegion.slice(1)}.`);
+            locList.innerHTML = "";
+            return;
+        }
+
+        markers.push(L.marker(destinationCoords).addTo(map).bindPopup(`<b>Destination:</b> ${destinationName}`));
+        map.setView(destinationCoords, 13);
+
+        locList.innerHTML += `<li>Destination: ${destinationName} (${destinationCoords[0].toFixed(5)}, ${destinationCoords[1].toFixed(5)})</li>`;
+        locList.innerHTML += `<li>Finding nearest warehouse...</li>`;
+
+        const nearestWarehouse = await findNearestWarehouse(destinationCoords);
+
+        if (!nearestWarehouse) {
+            alert("Could not find a nearest warehouse for the given destination in the selected region.");
+            locList.innerHTML = "";
+            return;
+        }
+
+        locList.innerHTML += `<li>Nearest Warehouse: <b>${nearestWarehouse.name}</b> (${nearestWarehouse.id})</li>`;
+
+        const existingWarehouseMarker = Object.values(map._layers).find(layer =>
+            layer instanceof L.Marker &&
+            layer.getLatLng().lat === nearestWarehouse.coords[0] &&
+            layer.getLatLng().lng === nearestWarehouse.coords[1]
+        );
+
+        if (existingWarehouseMarker) {
+            existingWarehouseMarker.bindPopup(`<b>Nearest Warehouse:</b> ${nearestWarehouse.name}`).openPopup();
+            if (existingWarehouseMarker._icon) {
+                L.DomUtil.addClass(existingWarehouseMarker._icon, 'highlight-warehouse');
+                setTimeout(() => L.DomUtil.removeClass(existingWarehouseMarker._icon, 'highlight-warehouse'), 3000);
+            }
+        }
+
+
+        locList.innerHTML += `<li>Calculating route from warehouse...</li>`;
+        const routeGeo = await getRouteBetweenPoints(nearestWarehouse.coords, destinationCoords);
+
+        if (routeGeo && routeGeo.features && routeGeo.features.length > 0) {
+            const seg = L.geoJSON(routeGeo, {
+                style: { color: "#28a745", weight: 5, opacity: 0.8 }
+            }).addTo(map);
+            allSegments.push(seg);
+
+            const totalDist = routeGeo.features[0].properties.summary.distance / 1000;
+
+            const dli = document.createElement("li");
+            dli.style.marginLeft = "20px";
+            dli.style.fontStyle = "italic";
+            dli.textContent = `Distance from ${nearestWarehouse.name} to ${destinationName}: ${totalDist.toFixed(2)} km`;
+            locList.appendChild(dli);
+
+            const bounds = L.latLngBounds([nearestWarehouse.coords, destinationCoords].map(c => L.latLng(c[0], c[1])));
+            map.fitBounds(bounds.pad(0.15));
+        } else {
+            locList.innerHTML += `<li>Could not find a route to the destination.</li>`;
+        }
+    }
+
+    /**
+     * Clears all dynamic markers and route lines from the map.
+     */
+    function clearRouteAndMarkers() {
+      // Remove dynamically added markers (destination, temp warehouse highlights)
+      markers.forEach(m => {
+        // Only remove if it's not one of the pre-defined static warehouse markers
+        const isStaticWarehouse = REGIONS[currentRegion].warehouses.some(node =>
+            node.coords[0] === m.getLatLng().lat && node.coords[1] === m.getLatLng().lng
+        );
+        if (!isStaticWarehouse) {
+            map.removeLayer(m);
+        }
+      });
+      markers = [];
+
+      allSegments.forEach(seg => map.removeLayer(seg));
+      allSegments = [];
+      document.getElementById("locList").innerHTML = "";
+    }
+
+    /**
+     * Clears all map elements.
+     * @param {boolean} clearCurrentLocation - If true, also clears the current location marker.
+     */
+    function clearAll(clearCurrentLocation = true) {
+      map.eachLayer(function (layer) {
+          // Do not remove the base tile layer
+          if (layer !== map.attributionControl && layer !== map.zoomControl) {
+            map.removeLayer(layer);
+          }
+      });
+      markers = [];
+      allSegments = [];
+
+      // Re-add the base tile layer after clearing if it was removed
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19, attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      // Reset current location marker if requested
+      if (clearCurrentLocation && currentLocationMarker) {
+        currentLocationMarker = null; // Remove reference
+      } else if (!clearCurrentLocation && currentLocationMarker) {
+        // If not clearing, re-add the current location marker to the map
+        // (it might have been removed by map.eachLayer if it was present)
+        L.marker(currentPosition, {
+          icon: L.divIcon({
+            html: '<div style="background-color:#2196F3;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>',
+            className: 'custom-div-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          })
+        }).addTo(map).bindPopup("My Current Location").openPopup();
+      }
+
+      document.getElementById("locationInput").value = "";
+      document.getElementById("locList").innerHTML = "";
+      addWarehouseNodesToMap(); // Re-add warehouses for the current region
+      map.setView(REGIONS[currentRegion].center, 12);
+    }
+
+    // --- Event Listeners ---
+    window.addEventListener("beforeunload", () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    });
+    window.addEventListener("load", initMap);
+  </script>
+</body>
+</html>
